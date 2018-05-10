@@ -46,7 +46,7 @@ void setup()
   } else {
     Serial.println("SUCCESS");
   }
-  sensor.setMode(MAX30100_MODE_SPO2_HR);
+  sensor.setMode(MAX30100_MODE_SPO2);
   sensor.setLedsCurrent(IR_LED_CURRENT, RED_LED_CURRENT);
   sensor.setLedsPulseWidth(PULSE_WIDTH);
   sensor.setSamplingRate(SAMPLING_RATE);
