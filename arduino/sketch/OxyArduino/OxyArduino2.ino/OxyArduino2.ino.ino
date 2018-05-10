@@ -58,12 +58,12 @@ void printToSerialVal(uint16_t ir, uint16_t red) {
 
 void printToMonitorVal(uint16_t ir, uint16_t red) {
   display.clearDisplay();
-  display.setTextSize(1);
+  display.setTextSize(2);
   display.setTextColor(WHITE);
   display.setCursor(0, 0);
-  display.print("Red:   ");
+  display.print("Red: ");
   display.println(red);
-  display.print("Ired:  ");
+  display.print("Ired:");
   display.println(ir);
   display.display();
 }
