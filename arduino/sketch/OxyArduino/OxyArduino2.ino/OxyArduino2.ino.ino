@@ -10,14 +10,15 @@
 #define RED_LED_CURRENT_OFF   MAX30100_LED_CURR_0MA
 #define OLED_RESET            4
 #define SCANNING              "Scanning..."
-
+#define VERSION               "ThArd_v3";
 Adafruit_SSD1306 display(OLED_RESET);
 MAX30100 sensor;
-boolean isEnable;
+boolean scanned = false;
 unsigned long intervalSerial = 2000;
-unsigned long intervalMonitor = 5000;
+unsigned long interval = 5000;
+unsigned long previousMillisSerial = 0;
 unsigned long previousMillis = 0;
-
+bool costylDlyaZaderzhki = false;
 void setup() {
   Serial.begin(115200);
   Serial.print("Initializing MAX30100..");
@@ -33,52 +34,86 @@ void setup() {
   sensor.setHighresModeEnabled(true);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
+  printToMonitorText("Put finger");
 }
-
 void loop() {
-  unsigned long start = millis();
-  enableRedLed(checkIrLed());
+  unsigned long currentMillis = millis();
+  
+
   if (checkIrLed()) {
+    enableRedLed(true);
+    if (!scanned) {
+      printToMonitorText("Scanning");
+    }
     int ir, red;
-    while (!getAvarageValues(&ir, &red, 300)) {
-      if (!checkIrLed()) {
-        return;
-      }
+    if (!getValues(&ir, &red)) {
+      return;
     }
     int ShO2 = calculateShO2(ir, red);
-    JsonObject& json = getJsonT(ir, red, ShO2);
-    json.printTo(Serial);
-    Serial.println();
-    printToMonitorVal(ir, red);
+    printToMonitorText("ShO2 = " + (String) ShO2);
+    printJson(ir, red, ShO2);
+    scanned = true;
   } else {
-    unsigned long currentMillis = millis(); // grab current time
-    if ((unsigned long)(currentMillis - previousMillis) >= intervalMonitor) {
-      printToMonitorText("Put finger");
+    enableRedLed(false);
+    scanned = false;
+    if ((unsigned long)(currentMillis - previousMillis) >= interval) {
+
+      if (costylDlyaZaderzhki) {
+        printToMonitorText("Put finger");
+        costylDlyaZaderzhki = false;
+      } else {
+        costylDlyaZaderzhki = true;
+      }
       previousMillis = millis();
     }
-    if ((unsigned long)(currentMillis - previousMillis) >= intervalSerial) {
-      JsonObject& json = getJsonF();
-      json.printTo(Serial);
-      Serial.println();
-    }
 
+    if ((unsigned long)(currentMillis - previousMillisSerial) >= intervalSerial) {
+      printEmptyJson();
+      previousMillisSerial = millis();
+    }
   }
 }
 
-JsonObject& getJsonF() {
+boolean getValues(int *irResult, int *redResult) {
+  long irRes = 0;
+  long redRes = 0;
+  for (int i = 0; i < 10000; i++) {
+    uint16_t ir, red;
+    sensor.update();
+    sensor.getRawValues(&ir, &red);
+    if (ir < 10000) return false;
+    irRes = irRes + ir;
+    redRes = redRes + red;
+  }
+  *irResult = irRes / 10000;
+  *redResult = redRes / 10000;
+  return true;
+}
+void printJson(int ir, int red, int ShO2) {
+  JsonObject& json = getJson(ir, red, ShO2);
+  json.printTo(Serial);
+  Serial.println();
+}
+
+void printEmptyJson() {
+  JsonObject& json = getEmptyJson();
+  json.printTo(Serial);
+  Serial.println();
+}
+
+JsonObject& getEmptyJson() {
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
-  root["device"] = "Tyrol_v2";
+  root["device"] = VERSION;
   root["status"] = false;
   return root;
 }
 
-JsonObject& getJsonT(int ir, int red, int ShO2) {
+JsonObject& getJson(int ir, int red, int ShO2) {
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
   JsonObject& values = jsonBuffer.createObject();
-
-  root["device"] = "Tyrol_v2";
+  root["device"] = VERSION;
   root["status"] = true;
   values["ir"] = ir;
   values["red"] = red;
@@ -89,21 +124,7 @@ JsonObject& getJsonT(int ir, int red, int ShO2) {
 int calculateShO2(long ir, long red) {
   return (float)red / (ir + red) * 100;
 }
-boolean getAvarageValues(int *irResult, int *redResult, int num) {
-  long irRes = 0;
-  long redRes = 0;
-  for (int i = 0; i < num; i++) {
-    uint16_t ir, red;
-    sensor.update();
-    sensor.getRawValues(&ir, &red);
 
-    irRes = irRes + ir;
-    redRes = redRes + red;
-  }
-  *irResult = irRes / num;
-  *redResult = redRes / num;
-  return true;
-}
 boolean checkIrLed() {
   uint16_t ir, red;
   sensor.update();
