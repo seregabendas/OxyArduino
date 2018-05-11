@@ -14,6 +14,9 @@
 Adafruit_SSD1306 display(OLED_RESET);
 MAX30100 sensor;
 boolean isEnable;
+unsigned long intervalSerial = 2000;
+unsigned long intervalMonitor = 5000;
+unsigned long previousMillis = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -48,10 +51,17 @@ void loop() {
     Serial.println();
     printToMonitorVal(ir, red);
   } else {
-    JsonObject& json = getJsonF();
-    json.printTo(Serial);
-    Serial.println();
-    printToMonitorText("Put finger");
+    unsigned long currentMillis = millis(); // grab current time
+    if ((unsigned long)(currentMillis - previousMillis) >= intervalMonitor) {
+      printToMonitorText("Put finger");
+      previousMillis = millis();
+    }
+    if ((unsigned long)(currentMillis - previousMillis) >= intervalSerial) {
+      JsonObject& json = getJsonF();
+      json.printTo(Serial);
+      Serial.println();
+    }
+
   }
 }
 
